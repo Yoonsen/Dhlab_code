@@ -86,10 +86,14 @@ def make_imagination_corpus():
    
     return imag_all
 
-def imag_ngram(corpus, words):
-    cnts = dh.Counts(corpus, words)
+def imagination_ngram(corpus, words, mode='rel'):
+    cnts = api.get_document_frequencies(list(corpus.urn), words = words)
     d2y = pd.Series(corpus.set_index('dhlabid')['year'].to_dict())
     d2y.to_frame('year')
-    frek = cnts.frame.transpose().copy()
+    if mode.startswith('r') or mode.startswith('R'):
+        df = cnts['relfreq']
+    else:
+        df = cnts['freq']
+    frek = df.transpose().copy()
     frek = pd.concat([frek, d2y.to_frame('year')], axis = 1)
     return frek.groupby('year').sum()
