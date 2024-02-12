@@ -2,6 +2,8 @@ import dhlab as dh
 import pandas as pd
 import dhlab.graph_networkx_louvain as gnl
 import networkx as nx
+import dhlab.api.dhlab_api as api
+
 
 def make_collocation_graph(corpus, target_word, top=15, before=4, after=4, ref = None, limit=1000):
     """Make a cascaded network of collocations ref is a frequency list"""
