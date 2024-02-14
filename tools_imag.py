@@ -1,9 +1,36 @@
 import dhlab as dh
+import dhlab.api.dhlab_api as api
 import pandas as pd
 import dhlab.graph_networkx_louvain as gnl
 import networkx as nx
-import dhlab.api.dhlab_api as api
+import requests
+import json
+from io import StringIO
 
+def imag_corpus():
+    res =  requests.get(f"{dh.constants.BASE_URL}/imagination/all")
+    if res.status_code == 200:
+        data = json.loads(res.text)
+    else:
+        data = "[]"
+    return pd.DataFrame(data)
+
+def geo_locations(dhlabid):
+    res = requests.get(f"{dh.constants.BASE_URL}/imagination_geo_data", params={"dhlabid":dhlabid})
+    if res.status_code == 200:
+        data = pd.read_json(StringIO(res.text))
+    else:
+        data = pd.DataFrame()
+    return data
+                       
+
+def get_imag_corpus():
+    im = imag_corpus()
+    c = dh.Corpus()
+    c.extend_from_identifiers(im.urn)
+    corpus = c.frame
+    corpus.dhlabid = corpus.dhlabid.astype(int)
+    return corpus
 
 def make_collocation_graph(corpus, target_word, top=15, before=4, after=4, ref = None, limit=1000):
     """Make a cascaded network of collocations ref is a frequency list"""
@@ -39,54 +66,7 @@ def make_collocation_graph(corpus, target_word, top=15, before=4, after=4, ref =
 
 def make_imagination_corpus():
     """Bygg hele imagination-korpuset fra dhlab"""
-
-    import requests
-    def query_imag_corpus(category=None, author=None, title=None, year=None, publisher=None, place=None, oversatt=None):
-        """Fetch data from imagination corpus"""
-        params = locals()
-        params = {key: params[key] for key in params if params[key] is not None}
-        #print(params)
-        r = requests.get(f"{dh.constants.BASE_URL}/imagination", params=params)
-        return r.json()
-   
-    # kategoriene
-    cats = [
-        'Barnelitteratur',
-        'Biografi / memoar',
-        'Diktning: Dramatikk',
-        'Diktning: Dramatikk # Diktning: oversatt',
-        'Diktning: Epikk',
-        'Diktning: Epikk # Diktning: oversatt',
-        'Diktning: Lyrikk',
-        'Diktning: Lyrikk # Diktning: oversatt',
-        'Diverse',
-        'Filosofi / estetikk / språk',
-        'Historie / geografi',
-        'Lesebok / skolebøker / pedagogikk',
-        'Litteraturhistorie / litteraturkritikk',
-        'Naturvitenskap / medisin',
-        'Reiselitteratur',
-        'Religiøse / oppbyggelige tekster',
-        'Samfunn / politikk / juss',
-        'Skisser / epistler / brev / essay / kåseri',
-        'Taler / sanger / leilighetstekster',
-        'Teknologi / håndverk / landbruk / havbruk'
-    ]
-   
-    # bygg en dataramme for hver kategori
-    a = dict()
-    for c in cats:
-        a[c] = dh.Corpus()
-        a[c].extend_from_identifiers(query_imag_corpus(category=c))
-        a[c] = a[c].frame
-        a[c]['category'] = c
-
-    # lim alt sammen til et stort korpus
-    imag_all = pd.concat([a[c] for c in a])
-    imag_all.year = imag_all.year.astype(int)
-    imag_all.dhlabid = imag_all.dhlabid.astype(int)
-   
-    return imag_all
+    return get_imag_corpus()
 
 def imagination_ngram(corpus, words, mode='rel'):
     cnts = api.get_document_frequencies(list(corpus.urn), words = words)
@@ -94,8 +74,10 @@ def imagination_ngram(corpus, words, mode='rel'):
     d2y.to_frame('year')
     if mode.startswith('r') or mode.startswith('R'):
         df = cnts['relfreq']
+        frek = df.transpose().copy()
+        frek = pd.concat([frek, d2y.to_frame('year')], axis = 1).groupby('year').mean()
     else:
         df = cnts['freq']
-    frek = df.transpose().copy()
-    frek = pd.concat([frek, d2y.to_frame('year')], axis = 1)
-    return frek.groupby('year').sum()
+        frek = df.transpose().copy()
+        frek = pd.concat([frek, d2y.to_frame('year')], axis = 1).groupby('year').sum()
+    return frek
