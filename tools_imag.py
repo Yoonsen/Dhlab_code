@@ -15,6 +15,18 @@ def imag_corpus():
         data = "[]"
     return pd.DataFrame(data)
 
+def get_imag_corpus():
+    im = imag_corpus()
+    c = dh.Corpus()
+    c.extend_from_identifiers(im.urn)
+    corpus = c.frame
+    corpus.dhlabid = corpus.dhlabid.astype(int)
+    corpus = corpus[['urn', 'dhlabid', 'title', 'authors', 
+       'city',  'year', 'publisher', 'langs', 'subjects', 'ddc',
+       'genres', 'literaryform', 'doctype', 'ocr_creator']]
+    corpus = corpus.merge(im[['urn', 'category']], left_on='urn', right_on='urn')
+    return corpus
+
 def geo_locations(dhlabid):
     res = requests.get(f"{dh.constants.BASE_URL}/imagination_geo_data", params={"dhlabid":dhlabid})
     if res.status_code == 200:
@@ -22,15 +34,6 @@ def geo_locations(dhlabid):
     else:
         data = pd.DataFrame()
     return data
-                       
-
-def get_imag_corpus():
-    im = imag_corpus()
-    c = dh.Corpus()
-    c.extend_from_identifiers(im.urn)
-    corpus = c.frame
-    corpus.dhlabid = corpus.dhlabid.astype(int)
-    return corpus
 
 def make_collocation_graph(corpus, target_word, top=15, before=4, after=4, ref = None, limit=1000):
     """Make a cascaded network of collocations ref is a frequency list"""
@@ -69,6 +72,9 @@ def make_imagination_corpus():
     return get_imag_corpus()
 
 def imagination_ngram(corpus, words, mode='rel'):
+    return corpus_ngram(corpus, words, mode)
+    
+def corpus_ngram(corpus, words, mode='rel'):
     cnts = api.get_document_frequencies(list(corpus.urn), words = words)
     d2y = pd.Series(corpus.set_index('dhlabid')['year'].to_dict())
     d2y.to_frame('year')
@@ -80,4 +86,7 @@ def imagination_ngram(corpus, words, mode='rel'):
         df = cnts['freq']
         frek = df.transpose().copy()
         frek = pd.concat([frek, d2y.to_frame('year')], axis = 1).groupby('year').sum()
+        frek = frek.astype(int)
+        
+    frek.index = frek.index.astype(int)
     return frek
