@@ -15,6 +15,23 @@ def imag_corpus():
         data = "[]"
     return pd.DataFrame(data)
 
+def words(word=None, limit=10, collection_name=None):
+    params = locals()
+    r = requests.get(f"{dh.constants.BASE_URL}/similarity/sim_words", params=params)
+    if r.status_code == 200:
+        res = pd.DataFrame(r.json(), columns=['word','score'])
+    else:
+        res = pd.DataFrame()
+    return res
+
+def collections():
+    r = requests.get(f"{dh.constants.BASE_URL}/similarity/collections")
+    if r.status_code == 200:
+        res = r.text
+    else:
+        res = ""
+    return res
+    
 def get_imag_corpus():
     im = imag_corpus()
     c = dh.Corpus()
